@@ -37,7 +37,8 @@ rf_data <- getSymbols("DTB4WK", src = "FRED", from = start_date, to = end_date, 
 # Convert Adjusted Closing Prices and DTB4WK to data frames
 amd_df <- data.frame(Date = index(amd_data), AMD = as.numeric(Cl(amd_data)))
 gspc_df <- data.frame(Date = index(gspc_data), GSPC = as.numeric(Cl(gspc_data)))
-rf_df <- data.frame(Date = index(rf_data), RF = as.numeric(rf_data[,1]))  # Accessing the first column of rf_data
+# Accessing the first column of rf_data
+rf_df <- data.frame(Date = index(rf_data), RF = as.numeric(rf_data[,1]))
 
 # Merge the AMD, GSPC, and RF data frames on the Date column
 df <- merge(amd_df, gspc_df, by = "Date")
@@ -81,7 +82,15 @@ $$
 $$
 
 ```r
-#fill the code
+# To ensure clarity and readability, we utilise the pipe operator '%>%' to pass the data frame 'df' to any of the following functions. 
+
+df <- df %>%
+  
+# We then utilise the 'mutate' function to add the columns of 'AMD_Daily_Return' and 'GSPC_Daily_Return' to the 'df' data frame. We calculate the daily returns of AMD through the formula: AMD - lag(AMD)) / lag(AMD), whereby the 'lag' function enables us to use the previous day's closing price. A similar calculation is then utilised to determine the daily returns of the S&P 500.
+  
+  mutate(AMD_Daily_Return = (AMD - lag(AMD)) / lag(AMD), 
+         GSPC_Daily_Return = (GSPC - lag(GSPC)) / lag(GSPC))
+
 ```
 
 - **Calculate Risk-Free Rate**: Calculate the daily risk-free rate by conversion of annual risk-free Rate. This conversion accounts for the compounding effect over the days of the year and is calculated using the formula:
@@ -91,21 +100,50 @@ $$
 $$
 
 ```r
-#fill the code
+# The pipe operator '%>%' enables us to pass the data frame 'df' to all following functions.
+
+df <- df %>%
+  
+# The 'mutate' function is then utilised to add the column of 'Daily_Risk_Free_Rate' to the 'df' data frame. We calculate the daily risk-free rate through the formula: (1 + RF/100)^(1/360) - 1. 
+  
+  mutate(Daily_Risk_Free_Rate = (1 + RF/100)^(1/360) - 1)
 ```
 
 
 - **Calculate Excess Returns**: Compute the excess returns for AMD and the S&P 500 by subtracting the daily risk-free rate from their respective returns.
 
 ```r
-#fill the code
+# Once, again, we use the pipe operator '%>%' to pass the data frame 'df' to all following functions.
+
+df <- df %>%
+
+# We then utilise the 'mutate' function to add the columns of 'AMD_Excess_Return' and 'GSPC_Excess_Return' to the 'df' data frame. We calculate the excess returns of AMD through the formula: AMD_Daily_Return - Daily_Risk_Free_Rate. A similar calculation is then used to determine the excess returns of the S&P 500. 
+  
+  mutate(AMD_Excess_Return = AMD_Daily_Return - Daily_Risk_Free_Rate,
+         GSPC_Excess_Return = GSPC_Daily_Return - Daily_Risk_Free_Rate)
 ```
 
 
 - **Perform Regression Analysis**: Using linear regression, we estimate the beta (\(\beta\)) of AMD relative to the S&P 500. Here, the dependent variable is the excess return of AMD, and the independent variable is the excess return of the S&P 500. Beta measures the sensitivity of the stock's returns to fluctuations in the market.
 
 ```r
-#fill the code
+# We utilise the 'lm' function to perform a linear regression analysis, whereby 'AMD_Excess_Return' is the dependent variable and 'GSPC_Excess_Return' is the independent variable. This result is then stored under the variable name 'linear_model'. 
+
+linear_model <- lm(AMD_Excess_Return ~ GSPC_Excess_Return, data = df)
+
+# Next, we use the 'coef' function to estimate and extract coefficients for the linear regression model. These results are then stored under the variable name 'coefficients'. 
+
+coefficients <- coef(linear_model)
+
+# We then print a summary of our linear regression model. The summary provides us with coefficients of statistics such as the standard-error, t-value, p-value and R-squared, enabling us to ascertain the validity of our model. 
+
+summary(linear_model)
+
+# Finally, we extract and print the coefficient associated with the variable 'GSPC_Excess_Return' and label this result as 'beta'. 
+
+beta <- coefficients["GSPC_Excess_Return"]
+cat("Beta:", beta, "\n")
+
 ```
 
 
@@ -113,14 +151,34 @@ $$
 
 What is your \(\beta\)? Is AMD more volatile or less volatile than the market?
 
-**Answer:**
+**Answer:** Through my linear regression model, the \(\beta\) of AMD, relative to the S&P500, was recorded as 1.569999. A \(\beta\) value greater than 1 indicates that the price of a stock experiences larger variability as opposed to the market. In the context of my given \(\beta\) value, this means that AMD's returns are expected to fluctuate 1.569999 times more than market returns. This implies that AMD carries greater investment risk, however, also presents the opportunity for heightened profits. Thereby, AMD is more volatile than the market.
 
 
 #### Plotting the CAPM Line
 Plot the scatter plot of AMD vs. S&P 500 excess returns and add the CAPM regression line.
 
 ```r
-#fill the code
+# In order to plot the scatter plot of the excess returns between AMD and the S&P 500, we shall specify the aesthetic mappings of the plot. By taking data from the 'df' data frame, we assign the x-axis to the 'GSPC_Excess_Return' column and the y-axis to the 'AMD_Excess_Return' column. In addition to this, we set 'na.rm = TRUE' to ensure that rows containing 'NA' values are ignored.  
+
+ggplot(df, aes(x = GSPC_Excess_Return, y = AMD_Excess_Return), na.rm = TRUE) +
+  
+# Using the 'geom_point' function, we add add points to create our scatter plot. By setting alpha as 0.4, we decrease the opacity of the points to 40%, enabling for clearer visualisation of any overlapping points. 
+  
+  geom_point(alpha = 0.4, na.rm = TRUE) + 
+  
+# Next, we utilise the 'geom_smooth' function, and set the method to 'lm', to add a linear regression line (CAPM regression line) to our plot.  
+  
+  geom_smooth(method = "lm", colour = "blue", na.rm = TRUE) + 
+  
+# We then add a title for our plot, as well as labels to the x and y axis. 
+  
+  labs(title = "Excess Returns of AMD vs. S&P 500", 
+       x = "Excess Return of S&P 500",
+       y = "Excess Return of AMD") + 
+  
+# Finally, we apply a minimalist theme to the plot, using the 'theme_minimal' function.
+  
+  theme_minimal()
 ```
 
 ### Step 3: Predictions Interval
@@ -131,5 +189,49 @@ Suppose the current risk-free rate is 5.0%, and the annual expected return for t
 **Answer:**
 
 ```r
-#fill the code
+# First, we start by initialising the variables 'Current_Risk_Free_Rate' and 'Annual_Expected_Return', which will be utilised in further calculations. 
+
+Current_Risk_Free_Rate <- 0.05
+Annual_Expected_Return <- 0.133
+
+# Next, we convert our annual risk free rate to the daily risk free rate through the formula: (1 + Current_Risk_Free_Rate)^(1/252) - 1. We then label this result as 'daily_rf'. (We use 252, given that there are 252 trading days in a year).
+
+daily_rf <- (1 + Current_Risk_Free_Rate)^(1/252) - 1 
+
+# Using our newly adjusted daily risk free rate, we calculate the annual expected return through the formula: Annual_Expected_Return/sqrt(252) - daily_rf. This result is then stored under the variable name 'xf'. 
+
+xf <- Annual_Expected_Return/sqrt(252) - daily_rf 
+
+# Next, we determine the average of the excess returns for the S&P500, using the 'mean' function. In addition to this, we set 'na.rm = TRUE', to ensure that 'NA' values are ignored. We then store this result as 'x_bar'.
+
+x_bar <- mean(df$GSPC_Excess_Return, na.rm = TRUE)
+
+# We then calculate the sum of the squared differences between each of the excess returns and the mean excess return, by using the 'sum' function. Once again, we set 'na.rm = TRUE', to ensure that 'NA' values are ignored. This result is then saved under the variable name 'x_difference_squared_sum'.  
+
+x_difference_squared_sum <- sum((df$GSPC_Excess_Return - x_bar)^2, na.rm = TRUE)
+
+# In order to calculate the annual standard error of the forecast, we extract the 'standard_error' from the summary, and calculate the daily standard error, 'sf', through the formula: standard_error * sqrt(1 + (1/nrow(df)) + (xf - x_bar)^2 / x_difference_squared_sum). We then convert this to the annual standard error through the formula: sf * sqrt(252). 
+
+standard_error <- summary(linear_model)$sigma 
+sf <- standard_error * sqrt(1 + (1/nrow(df)) + (xf - x_bar)^2 / x_difference_squared_sum)
+annual_sf <- sf * sqrt(252)
+
+# Using the CAPM formula, we calculate the expected returns for AMD via the formula: Current_Risk_Free_Rate + beta*(Annual_Expected_Return - Current_Risk_Free_Rate. 
+
+AMD_Expected_Return <- Current_Risk_Free_Rate + beta*(Annual_Expected_Return - Current_Risk_Free_Rate)
+
+# For a prediction level of 90%, we must account for the two tails of distribution. That is, since 1 - 0.9 = 0.1 and 0.1 / 2 = 0.5, each tail is to contain 5% of the distribution. Thereby, we determine the critical t-value by specifying 0.95 for the 'qt' function, which will account for the upper tail of the distribution. 
+t_critical <- qt(0.95, df = nrow(df) - 2)
+
+# The error margin is then calculated through the formula: t_critical * annual_sf. We determine the lower and upper bounds for AMD's annual expected return by appropriately subtracting and adding the 'error_margin' to the variable 'AMD_Expected_Return'.
+
+error_margin <- t_critical * annual_sf
+lower_bound <- AMD_Expected_Return - error_margin
+upper_bound <- AMD_Expected_Return + error_margin
+
+# Finally, we print out results, showing the lower and upper bounds, as well as the 90% prediction interval.
+
+cat("Lower bound:", lower_bound, "\n")
+cat("Upper bound:", upper_bound, "\n")
+cat("90% Prediction Interval: [",lower_bound,",",upper_bound,"]\n")
 ```
