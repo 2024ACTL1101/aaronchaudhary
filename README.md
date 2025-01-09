@@ -9,8 +9,8 @@
 
 ---
 
-Project 1: [Algorithmic Trading](algotrading.md)
-Project 2: [CAPM Model](capm.md)
+Project 1: [Algorithmic Trading](algotrading.md)  
+   Project 2: [CAPM Model](capm.md)
 
 Throughout ACTL1101, I have mastered the below topics listed in principles of actuarial science:
 
